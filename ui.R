@@ -37,7 +37,8 @@ shinyUI(fluidPage(
     mainPanel(
     tabsetPanel(type="tabs",
                 tabPanel("Plot",plotOutput("filteredPlot")),
-                tabPanel("Table", tableOutput("filterSummary"))
+                tabPanel("Table", tableOutput("filterSummary")),
+                tabPanel("Citation", verbatimTextOutput("summary"))
     )))
 ))
 

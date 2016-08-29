@@ -30,11 +30,31 @@ shinyServer(function(input, output) {
     ft[,filt,drop=F]
   })
   
-  drawPlot <- function(d) {
+  
+  drawPlot <- function(d){
+    dd = as.data.frame(t(d))
+    rr = round(min(0.5, max(abs(c(dd$high, dd$low)-0.5))), 2)
+    ticks = seq(-rr, rr, length.out=5)
+    dd$Enriched = levels(f)[(dd$auc<.5) + 1]
+    print(rownames(dd))
+    dd$Names = factor(rownames(dd), levels=rownames(dd)[order(dd$auc)])
+    dd$heights = dd$auc - 0.5
+    ggplot(data=dd, aes(y=heights, x=Names)) + theme_bw() + 
+      geom_bar(stat="identity", aes(fill=Enriched)) + geom_errorbar(aes(ymax = high-0.5, ymin=low-0.5))+
+      coord_flip() + xlab("")  + ylab("")  + 
+      scale_y_continuous(breaks = ticks, labels = format(ticks+0.5, digits=3)) 
+  }
+  
+  
+  drawPlot2 <- function(d) {
+    
+    
     lims = round(min(0.5, max(abs(c(d["high",], d["low",])-0.5))), 2)
     
     bar.lengths = d["auc",,drop=F]-0.5
+    print(bar.lengths)
     cols = c("red", "green")[(bar.lengths>0.0)+1]
+    print(cols)
     ys = barplot(bar.lengths,
                  col = cols,
                  border="black",
@@ -43,7 +63,7 @@ shinyServer(function(input, output) {
                  cex.names=0.5,
                  xlim=c(-lims, lims),
                  names.arg = colnames(bar.lengths),
-                 xlab="AUC")
+                 xlab="AUC", las=2)
     ticks = 5
     ticks = seq(-lims, lims, length.out=ticks)
     labels = format(ticks+0.5, digits=3)
@@ -61,4 +81,10 @@ shinyServer(function(input, output) {
   
   output$filterSummary <- renderTable({ data.frame(filteredData()) })
   
+  output$summary <- renderText(
+"Suggested methodology wording:
+References:
+1.
+2.
+")
 })
