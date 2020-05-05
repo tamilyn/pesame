@@ -1,0 +1,12 @@
+---
+title: "misc"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+![](/Users/tamicrawford/d/projects/golemshinyapp/pesame_handdrawn_diagram.jpg)
+
+![](/Users/tamicrawford/d/projects/golemshinyapp/pesame_diagram.png)
