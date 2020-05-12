@@ -39,12 +39,16 @@ mod_factors_server <- function(input, output, session,
 
   ### output$availableFactorsTable ----
   output$availableFactorsTable <- DT::renderDataTable({
-   
-    dat <- allFactorDetails() %>%
-      filter(ready) %>%
-      select(name, labels, method_applied, type, description,
+    dd <- allFactorDetails() %>% filter(ready)
+    if(!"numeric.hist" %in% colnames(dd)) {
+      dat <- dd %>%
+        select(name, labels, method_applied, type, description,
+          true_label, n_missing)
+    } else {
+      dat <- dd %>%
+        select(name, labels, method_applied, type, description,
          true_label, n_missing, numeric.hist)
-
+    }
     datatable(dat)
  })
 
@@ -277,8 +281,6 @@ mod_factors_server <- function(input, output, session,
     tp <- "factorgroup"
     f_labels <- str_c(input$level0Label, ",", input$level1Label, sep="")
     f_true_label = input$level1Label
-    print("labels")
-    print(f_labels)
     other_factors <- details %>% dplyr::filter(name != ft)
 
     # get the labels and true values
@@ -315,6 +317,11 @@ mod_factors_server <- function(input, output, session,
 
   observeEvent(input$applyMedian, {
      applyFactorNumeric(input$selected, "median")
+  })
+
+  observeEvent(input$applyFactorGroupButton, {
+    b <- glue::glue_collapse(input$level0checkboxes, sep = ", ")
+    applyFactorGroup(input$selected, input$level0checkboxes) 
   })
 }
     
