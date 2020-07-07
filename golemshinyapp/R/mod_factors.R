@@ -160,6 +160,10 @@ mod_factors_server <- function(input, output, session,
    af <- computedDetails()
 
    this_factor <- af %>% filter(name == selected)
+   if(is.null(this_factor)) {
+      print(glue::glue("164: no this_factor Selected: {selected}"))
+      return(NULL)
+   }
    #print(glue::glue("192: this_factor {this_factor} Selected: {selected}"))
    if(is.null(this_factor) || this_factor$type == "numeric") {
       return(NULL)
