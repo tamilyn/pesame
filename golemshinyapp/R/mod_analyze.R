@@ -11,12 +11,16 @@ mod_analyze_ui <- function(id){
   ns <- NS(id)
   tagList(
     fluidRow(
+      column(3, p("Description")), 
+      column(9, uiOutput(ns("analysis_description")))
+    ),
+    fluidRow(
       column(4, selectInput(ns("adj_method"),
 		label = "Comparison Method", choices = method.options,
 		selectize = FALSE,
 		size = 1,
       selected = "fdr")),
-      column(4, selectInput(inputId = ns("signficance_threshold"),
+      column(4, selectInput(inputId = ns("significance_threshold"),
 		label= "Significance Threshold",
                 selectize = FALSE,
 		size = 1,
@@ -38,7 +42,7 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
   # baseFilteredData ----
   # filter data by significance threshold and transpose
   baseFilteredData <- reactive({
-    req(input$signficance_threshold)
+    req(input$significance_threshold)
 
     sf <- theSelectedFactor()
     if(length(sf) == 0) {
@@ -51,9 +55,6 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
       flog.info("102: baseFilteredData: no otut")
       return(NULL)
     }
-
-    #print(glue::glue("56: Otut: ", glue::glue_collapse(dim(otut), sep = " x " )))
-    #print(glue::glue("57: sf : ", class(sf)))
 
     ft = tryCatch({
         suppressWarnings(helper.data_by_auc( otut = otut, fdata = sf, input$adj_method))
@@ -70,10 +71,10 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
       flog.info("118: baseFilteredData NULL")
       return(NULL)
     }
-    thres <- input$signficance_threshold
+    thres <- input$significance_threshold
 
     if(thres != "All") {
-      thres <- as.numeric(input$signficance_threshold)
+      thres <- as.numeric(input$significance_threshold)
       filt = (ft["p.adjust", ] < thres) & !is.na(ft["p.adjust", ])
       result <- t(ft[, filt, drop=F])
     } else {
@@ -123,7 +124,6 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
   })
 
   roundedData <- reactive({
-     #print("roundeddata")
      fd <- filteredData() %>%
       mutate(auc = round(auc,5),
              se = round(se,5),
@@ -144,9 +144,6 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
       return(NULL)
     }
 
-    #print(glue::glue("150: Pulling selected factor: {input$selectedFactor}"))
-    #xx <- fd %>% pull(input$selectedFactor)
-    #print(head(xx,100))
     fd %>% pull(input$selectedFactor)
   })
 
@@ -171,8 +168,8 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
 
   getDD <- reactive({
 
-    req(input$signficance_threshold, input$selectedFactor)
-    print(glue::glue("GET DD factor: {input$selectedFactor} threshold: {input$significance_threshold}"))
+    req(input$significance_threshold, input$selectedFactor)
+    #print(glue::glue("GET DD factor: {input$selectedFactor} threshold: {input$significance_threshold}"))
 
     dd <- filteredData()
     if(is.null(dd) || length(dd) == 0) {
@@ -256,7 +253,7 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
 
   # output$filteredPlotly ----
   output$filteredPlotlyX <- renderPlotly({
-    req(input$signficance_threshold, input$selectedFactor)
+    req(input$significance_threshold, input$selectedFactor)
 
     dd <- filteredData()
     if(is.null(dd) || length(dd) == 0) {
@@ -280,6 +277,13 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
     generatePlot_ly()
   })
 
+  output$analysis_description<- renderText({
+      method <- ifelse(is.null(input$adj_method), "--", input$adj_method)
+      thres <- ifelse(is.null(input$significance_threshold), "--", input$significance_threshold)
+      fac <- ifelse(is.null(input$selectedFactor), "--", input$selectedFactor)
+      s <- glue("Method: <b>{method}</b> Threshold {thres} Factor {fac}")
+      s
+  })
 
   ###-- panel at bottom of Analyze panel
   output$dataTabPanel = renderUI({
