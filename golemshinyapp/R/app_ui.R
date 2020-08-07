@@ -81,10 +81,10 @@ app_ui <- function(request) {
                          spec_main = c(width = 10, offset = 0)) %>%
       bs_append( title_side = "Load data",
                  content_side = load_data_content_side,
-                 content_main = fluidRow(
+                 content_main = tagList(fluidRow(
                    column(6, mod_loadmodule_ui("loadmodule_ui_1")),
                    column(6, mod_load_factors_ui("loadmodule_ui_2"))
-                   )  
+                   ))  
                  ) %>%
       bs_append( title_side = "Factors",
                  content_side = "Select factors",
