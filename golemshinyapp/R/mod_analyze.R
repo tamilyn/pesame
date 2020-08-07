@@ -12,7 +12,7 @@ mod_analyze_ui <- function(id){
   tagList(
     fluidRow(
       column(3, p("Description")), 
-      column(9, uiOutput(ns("analysis_description")))
+      column(9, uiOutput(ns("description")))
     ),
     fluidRow(
       column(4, selectInput(ns("adj_method"),
@@ -36,7 +36,9 @@ mod_analyze_ui <- function(id){
 #' @import DT
 #' @import Hmisc
 #' @noRd 
-mod_analyze_server <- function(input, output, session, metadata, availableFactors, mvdata, computedDetails){
+mod_analyze_server <- function(id, filesData, factorFileData) {
+
+  moduleServer(id, function(input, output, session) {
   ns <- session$ns
 
   # baseFilteredData ----
@@ -107,15 +109,14 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
    selectedFactorLabels <- reactive({
      req(input$selectedFactor)
 
-     this_factor <- computedDetails() %>%
-            filter(name == input$selectedFactor)
-     this_factor$labels
+     v <- filter(factorFileData()$computedDetails, name == input$selectedFactor)
+     v$labels
   })
 
 
   ## output$factorVariables ----
   output$factorVariables = renderUI({
-    af <- availableFactors()
+    af <- factorFileData()$availableFactors
     if(length(af) > 0) {
       selectInput(ns('selectedFactor'), 'Select factor', af )
     } else {
@@ -136,11 +137,13 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
 
 
   theSelectedFactor <- reactive({
-    req(input$selectedFactor, metadata())
+    req(input$selectedFactor, factorFileData()$metadata)
 
-    fd <- metadata()
+    fd <- factorFileData()$metadata
     if(!input$selectedFactor %in% names(fd)) {
       flog.info("theSelectedFactor not available")
+      #print(names(fd))
+      #browser()
       return(NULL)
     }
 
@@ -148,7 +151,8 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
   })
 
   otut_for_processing <- reactive({
-    tft <- mvdata()
+
+    tft <- filesData()$mvdata
     if(is.null(tft)) {
       print("no mvdata() ")
       return(NULL)
@@ -247,37 +251,18 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
     p
   })
 
-  ### output$analyze_table ----
-  output$analyze_table <- 
-     DT::renderDataTable(roundedData(), options = list(pageLength = 5)) 
-
-  # output$filteredPlotly ----
-  output$filteredPlotlyX <- renderPlotly({
-    req(input$significance_threshold, input$selectedFactor)
-
-    dd <- filteredData()
-    if(is.null(dd) || length(dd) == 0) {
-       flog.info("filteredPlotly: NO DATA")
-       return(NULL)
-    }
-
-    sf = theSelectedFactor()
-
-    dd$Enriched = levels(sf)[(dd$auc<.5) + 1]
-
-    dd$heights = dd$auc - 0.5
-    dd$auc1 = dd$heights
-    dd$Names = factor(rownames(dd), levels=rownames(dd)[order(dd$auc)])
-
-    generatePlot_ly(dd)
+  ### output$analyzeTable ----
+  output$analyzeTable <- DT::renderDataTable({
+       d <- roundedData()
+       DT::datatable(roundedData(), options = list(pageLength = 5)) 
   })
 
-
+  # output$filteredPlotly ----
   output$filteredPlotly <- renderPlotly({
     generatePlot_ly()
   })
 
-  output$analysis_description<- renderText({
+  output$description<- renderText({
       method <- ifelse(is.null(input$adj_method), "--", input$adj_method)
       thres <- ifelse(is.null(input$significance_threshold), "--", input$significance_threshold)
       fac <- ifelse(is.null(input$selectedFactor), "--", input$selectedFactor)
@@ -293,7 +278,8 @@ mod_analyze_server <- function(input, output, session, metadata, availableFactor
 
     tabsetPanel(type="tabs",
       tabPanel("Plot", plotlyOutput(ns("filteredPlotly"))),
-      tabPanel("Table", DT::dataTableOutput(ns("analyze_table"))))
+      tabPanel("Table", DT::dataTableOutput(ns("analyzeTable"))))
+  })
   })
 }
     

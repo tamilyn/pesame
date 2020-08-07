@@ -24,12 +24,14 @@ uniq_vals_description <- function(ff1) {
   ss
 }
 
-#' handle_factor
+#' uniqvals 
 #'
 #' @import purrr
 #' @import stringr 
 #' @import dplyr 
-handle_factor <- function(nm, f) {
+#' @import tidyr 
+#' @import glue 
+uniqvals <- function(f) {
 
   u_vals <- unique(f)
   num_unique <- length(u_vals)
@@ -39,38 +41,40 @@ handle_factor <- function(nm, f) {
   labels <- "FALSE,TRUE"
   true_label <- "TRUE"
 
-  if(type == "numeric") {
-    description <- sprintf("Numeric: min %4.3f max %4.3f median %4.3f mean %4.3f",
-            min(f, na.rm = TRUE),
-            max(f, na.rm = TRUE),
-            median(f, na.rm = TRUE),
-            mean(f, na.rm = TRUE))
-  } else {
-    description <- sprintf("character, num values %d", num_unique)
-    if(num_unique == 2) {
-      labels <- str_c(u_vals, collapse = ",")
-      true_label <- u_vals[2]
-    }
+  uu_str <- glue_collapse(u_vals, ", ")
+  if(num_unique == 2) {
+     labels <- str_c(u_vals, collapse = ",")
+     true_label <- u_vals[2]
   }
 
-  uu <- uniq_vals_description(f)
-  new_df <- tibble(name = nm,
-                       num_unique = num_unique,
-                       unique_values = uu,
-                       method_applied = "none",
-                       ready = (num_unique == 2),
-                       type = type,
-                       description = description,
-                       labels = labels,
-                       true_label = true_label)
+  description <- uniq_vals_description(f)
+  new_df <- tibble(num_unique = num_unique,
+                   unique_values = uu_str,
+                   method_applied = "none",
+                   type = type,
+                   description = description,
+                   labels = labels,
+                   true_label = true_label)
 }
 
-#' identify_factors
+
+#' identifyFactors
 #'
 #' @import purrr
 #' @import stringr 
 #' @import dplyr 
-identify_factors <- function(df) {
-  rows <- map(colnames(df), ~ handle_factor(., pull(df,.)))
-  dplyr::bind_rows(rows)
+#' @import tidyr 
+identifyFactors <- function(df) {
+  dfcounts <- df %>% summarise(across(everything(), n_distinct))
+  dfcols <- dfcounts %>% pivot_longer(everything())
+
+  cols <- dfcols %>% filter(value == 2) %>% pull(name)
+  factors_df <- map_df(cols, ~ uniqvals(pull(df,.))) %>%
+    mutate(name = cols, ready = TRUE) 
+
+  othercols <- dfcols %>% filter(value != 2) %>% pull(name)
+  nonfactors_df <- map_df(othercols, ~ uniqvals(pull(df,.))) %>%
+    mutate(name = othercols, ready = FALSE) 
+
+  both <- bind_rows(factors_df, nonfactors_df)
 }
