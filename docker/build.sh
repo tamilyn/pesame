@@ -1,2 +1,2 @@
 #!/bin/sh
-docker build -t shinypesame builddir 
+docker build -t alekseyenko/pesame builddir 
