@@ -19,7 +19,7 @@ citation_main <-
 top_part <- tags$nav(class="navbar navbar-default navbar-fixed-top",
   div(class="container",
     tags$ul(class="nav navbar",
-      tags$li(class="navbar-text navbar-brand", "PESAME"))))
+      tags$li(class="navbar-text navbar-brand", "PESAME: Predictive effect size analysis in multivariable ensembles"))))
 
 
 #' hdr - dashboard header

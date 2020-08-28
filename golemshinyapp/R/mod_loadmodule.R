@@ -11,7 +11,7 @@
 mod_loadmodule_ui <- function(id){
   ns <- NS(id)
   tagList(
-      fileInput(ns("file"), 'Otut File'),
+      fileInput(ns("file"), 'Feature File'),
       uiOutput(ns("fileContentsPreview"))
     )
 }

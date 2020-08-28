@@ -14,18 +14,18 @@ significance.options <- list(
   "All"           = "All",
   "0.05"          = 0.05,
   "0.01"          = 0.01,
-  "0.001"         = 0.001,
-  "0.0001"        = 0.0001,
-  "0.00001"       = 0.00001,
-  "0.000001"      = 0.000001,
-  "0.0000001"     = 0.0000001,
-  "0.00000001"    = 0.00000001,
-  "0.000000001"   = 0.000000001)
+  "10^-3"         = 0.001,
+  "10^-4"        = 0.0001,
+  "10^-5"       = 0.00001,
+  "10^-6"      = 0.000001,
+  "10^-7"     = 0.0000001,
+  "10^-8"    = 0.00000001,
+  "10^-9"   = 0.000000001)
 
 
 #' significance.options.default - default significance option
 #'
-significance.options.default = significance.options[3]
+significance.options.default = significance.options[1]
 
 #' method.options.all - all method options 
 #'
@@ -40,14 +40,15 @@ method.options.all = list("holm" = "holm",
 
 #' method.options - available method options 
 #'
-method.options = list( "bonferroni" = "bonferroni",
+method.options = list("holm" = "holm",
+                      "bonferroni" = "bonferroni",
                       "fdr" = "fdr",
                       "none" = "none")
 
 #' method.options.default - default method options 
 #'
 #' @export
-method.options.default = "fdr"
+method.options.default = "none"
 
 #' input.options - input file options 
 #'

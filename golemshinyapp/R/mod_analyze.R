@@ -214,7 +214,7 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
 
     my.error.bars = list(type = "data", symmetric = FALSE, color = '#333333',arrayminus = ~dd$low-0.5,array = ~dd$high-0.5)
 
-    hover.text = paste(dd$Names, " Auc ",round(dd$auc,2)," high: ", round(dd$high,2), "low", round(dd$low,2))
+    hover.text = paste(dd$Names, " AUC ",round(dd$auc,2)," high: ", round(dd$high,2), "low", round(dd$low,2))
 
     layout_title <- 
         glue::glue( "LEGEND: {input$selectedFactor} {selectedFactorLabels()}" )

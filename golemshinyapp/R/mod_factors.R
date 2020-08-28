@@ -83,7 +83,7 @@ mod_factors_server <- function(id, factorFileData) {
     }
     
     #tagList(h2("Non factor Variables"), natable, h2("Factors"), atable)
-    tagList(h2("Factors"), atable)
+    tagList(h2("Usable Binary Factors"), atable)
   })
 
 
@@ -115,8 +115,8 @@ mod_factors_server <- function(id, factorFileData) {
        #print(head(af))
        af <- af %>% dplyr::pull(name)
        tagList(
-         selectInput(ns('selected'), 'Factor', af ),
-         actionButton(ns("adjusterBtn"), "Edit Factor")
+         selectInput(ns('selected'), 'Variable', af ),
+         actionButton(ns("adjusterBtn"), "Prepare Factor")
        )
     } else {
       p("no available factors")
@@ -131,7 +131,7 @@ mod_factors_server <- function(id, factorFileData) {
  selectedKind <- reactive({ 
 
    validate( need(input$selected,
-                  "No factors to show because no meta data loaded"))
+                  "No factors to show because no sample data loaded"))
 
     selected <- input$selected
     details <- factorFileData()$allOriginalFactor
@@ -163,9 +163,9 @@ mod_factors_server <- function(id, factorFileData) {
 
    # based on type of factor
    tagList(
-     textInput(ns("level0Label"), "Level 0 Label", fvals[1]),
-     textInput(ns("level1Label"), "Level 1 Label", fvals[2]),
-     div(actionButton(ns("applyFactorGroupButton"),"Factor Apply Levels")))
+     textInput(ns("level0Label"), "Reference Label", fvals[1]),
+     textInput(ns("level1Label"), "Comparison Label", fvals[2]),
+     div(actionButton(ns("applyFactorGroupButton"),"Finalize")))
  })
 
 
@@ -331,7 +331,7 @@ mod_factors_server <- function(id, factorFileData) {
           span(style="color:blue; font-size:150%;",input$selected),
 # need to preselect the current value
           checkboxGroupInput(ns("level0checkboxes"),
-             "Which value should be level 0?", selectedFactorValues()),
+             "Select reference values", selectedFactorValues()),
           uiOutput(ns("selectedFactorDescription")),
           size = "l",
           easyClose = TRUE
