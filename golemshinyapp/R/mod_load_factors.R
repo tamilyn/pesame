@@ -10,7 +10,7 @@
 mod_load_factors_ui <- function(id){
   ns <- NS(id)
   tagList(
-    fileInput(ns("file"), 'Metadata (factors) File'),
+    fileInput(ns("file"), 'Sample Data File'),
     uiOutput(ns("fileContentsPreview"))
   )
 }

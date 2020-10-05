@@ -161,16 +161,20 @@ mod_factors_server <- function(id, factorFileData) {
       )
       
       msg <- ifelse(
-        this_factor$type == "character",
+
+        this_factor$ready,
         "This factor is ready and available to use in the analysis.  
         
         This variable has levels which can be assigned to 0 (FALSE) or 1 (TRUE)",
+        ifelse( this_factor$type == "character",
+                "This variable must be processed before it can be analyzed.
         
-        
+        This variable can be partitioned by assigning each value to one of two categories",
+                
         "This variable must be processed before it can be analyzed.
         
         This variable can be partitioned by using the mean or median"
-      )
+      ))
       
       tagList(div(style = styling, p(msg)))
     })
