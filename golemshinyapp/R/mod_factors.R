@@ -11,8 +11,9 @@ mod_factors_ui <- function(id){
   ns <- NS(id)
 
   tagList(
-    uiOutput(ns("selectDropdown")),
-    uiOutput(ns("factorTables"))
+    uiOutput(ns("factorSelectionArea")),
+    uiOutput(ns("editFactorUI")),
+    tableOutput(ns("factorTable"))
   )
 }
     
@@ -23,339 +24,354 @@ mod_factors_ui <- function(id){
 #' @import skimr
 #' @import dplyr
 mod_factors_server <- function(id, factorFileData) {
-
-   moduleServer( id, function(input, output, session) { 
-
-     ns <- session$ns
-
-  ### allFactorDetails ----
-  allFactorDetails <- reactive({
-    fl <- factorFileData()
-    if(!is.null(fl)) {
-       left_join(fl$computedDetails, skimr::skim(fl$orig_metadata), 
-           by=c("name"="skim_variable")) 
-    }
-  })
-
-  ### output$availableFactorsTable ----
-  output$availableFactorsTable <- DT::renderDataTable({
-    dd <- allFactorDetails() %>% filter(ready)
-    if(!"numeric.hist" %in% colnames(dd)) {
-      dat <- dd %>%
-        select(name, labels, method_applied, type, description,
-          true_label, n_missing)
-    } else {
-      dat <- dd %>%
-        select(name, labels, method_applied, type, description,
-         true_label, n_missing, numeric.hist)
-    }
-    datatable(dat)
- })
-
-
-
- ### output$notAvailableFactorsTable ----
- output$notAvailableFactorsTable <- DT::renderDataTable({
-   
-   details2 <- allFactorDetails() %>%
-     filter(!ready) %>%
-     select(ready, name, labels, num_unique, everything())
-
-   details2
- })
-
-  ## output$factorTables ----
-  output$factorTables = renderUI({
-
-    num_avail <- allFactorDetails() %>% filter(ready) %>% nrow()
-    num_unavail <- allFactorDetails() %>% filter(!ready) %>% nrow()
-
-    if(num_avail > 0) {
-       atable <- DT::dataTableOutput(ns("availableFactorsTable"))
-    } else {
-      atable <- p("No available factors")
-    }
-
-    if(num_unavail > 0) {
-       natable <- DT::dataTableOutput(ns("notAvailableFactorsTable"))
-    } else {
-      natable <- p("All factors useable")
+  moduleServer(id, function(input, output, session) {
+    ns <- session$ns
+    
+    availableFactors <- reactive({
+      fl <- factorFileData()
+      fl$factorDetails %>% dplyr::filter(ready) %>% pull(name)
+    })
+    
+    ## output$factorVariables ----
+    output$factorVariables = renderUI({
+      af <- availableFactors()
+      if (length(af) > 0) {
+        selectInput('selectedFactor', 'Select factor', af)
+      } else {
+        h1("No available factors")
+      }
+    })
+    
+    selectedFactorLabels <- reactive({
+      req(input$selectedFactor)
+      
+      fl <- factorFileData()
+      this_factor <- fl$factorDetails %>%
+        filter(name == input$selectedFactor)
+      this_factor$labels
+    })
+    
+    ## output$factorSelectionArea ----
+    output$factorSelectionArea <- renderUI({
+      fl <- factorFileData()
+      af <- fl$factorDetails
+      if (!is.null(af)) {
+        #print(head(af))
+        af <- af %>% dplyr::pull(name)
+        tagList(fluidRow(column(6, selectInput(
+          ns('selected'), 'Factor', af
+        )),
+        column(6, uiOutput(
+          ns("selectedFactorOverview")
+        ))))
+      } else {
+        p("no available factors")
+      }
+    })
+    
+    
+    selectedFactorValues <- reactive({
+      factorFileData()$orig_metadata %>% pull(input$selected) %>% unique
+    })
+    
+    selectedKind <- reactive({
+      validate(need(
+        input$selected,
+        "No factors to show because no meta data loaded"
+      ))
+      
+      selected <- input$selected
+      details <- factorFileData()$factorDetails
+      kind <- details %>%
+        dplyr::filter(name == input$selected) %>%
+        dplyr::pull(type)
+      kind
+    })
+    
+    output$selectedFactorDescription <- renderUI({
+      if (is.null(input$selected)) {
+        return(NULL)
+      }
+      
+      selected <- input$selected
+      af <- factorFileData()$factorDetails
+      
+      this_factor <- af %>% filter(name == selected)
+      if (is.null(this_factor)) {
+        print(glue::glue("164: no this_factor Selected: {selected}"))
+        return(NULL)
+      }
+      
+      if (is.null(this_factor)
+          || this_factor$type == "numeric"
+          || this_factor$type == "integer") {
+        return(NULL)
+      }
+      
+      # only shown for character factor
+      tagList(
+        textInput(
+          ns("level0Label"),
+          "Level 0 Label",
+          this_factor$false_label
+        ),
+        textInput(
+          ns("level1Label"),
+          "Level 1 Label",
+          this_factor$true_label
+        ),
+        div(actionButton(
+          ns("assignLevelsBtn"), "Assign Values to Levels"
+        ))
+      )
+    })
+    
+    output$selectedFactorOverview <- renderUI({
+      if (is.null(input$selected)) {
+        return(NULL)
+      }
+      
+      selected <- input$selected
+      af <- factorFileData()$factorDetails
+      
+      this_factor <- af %>% filter(name == selected)
+      if (is.null(this_factor)) {
+        print(glue::glue("164: no this_factor Selected: {selected}"))
+        return(NULL)
+      }
+      
+      fvals <- str_split(this_factor$unique_values, ",") %>% unlist
+      num_vals <- length(fvals)
+      
+      bg <- ifelse(this_factor$ready, "lightgreen" , "pink")
+      styling <-
+        glue::glue(
+          "color:blue; background-color: {bg}; padding: 5px; border: thin solid navy; font-size:120%;"
+        )
+      method <- ifelse(
+        this_factor$method_applied == "none",
+        "",
+        glue("Method: {this_factor$method_applied}")
+      )
+      
+      uvals <- ifelse(
+        this_factor$type == "character",
+        glue("Values: {this_factor$unique_values}"),
+        "numeric"
+      )
+      
+      msg <- ifelse(
+        this_factor$type == "character",
+        "This factor is ready and available to use in the analysis.  
+        
+        This variable has levels which can be assigned to 0 (FALSE) or 1 (TRUE)",
+        
+        
+        "This variable must be processed before it can be analyzed.
+        
+        This variable can be partitioned by using the mean or median"
+      )
+      
+      tagList(div(style = styling, p(msg)))
+    })
+    
+    ### applyFactorNumeric
+    applyFactorNumeric <- function(ft, fmethod) {
+      orig_md <- factorFileData()$orig_metadata
+      md <- factorFileData()$metadata
+      
+      #print(glue::glue("166 APPLY {ft} method {fmethod}"))
+      selected_factor <- orig_md %>% pull(ft)
+      
+      if (fmethod == "median") {
+        midpoint = median(selected_factor, na.rm = TRUE)
+        new_labels = "below median,above median"
+        new_true = "above median"
+        new_false = "below median"
+      } else {
+        midpoint = mean(selected_factor, na.rm = TRUE)
+        new_labels = "below mean,above mean"
+        new_true = "above mean"
+        new_false = "below mean"
+      }
+      md[, ft] <- orig_md[, ft] > midpoint
+      
+      fl <- factorFileData()
+      fl$metadata <- md
+      factorFileData(fl)
+      
+      fd <- fl$factorDetails
+      otherfactor <- filter(fd, name != ft)
+      
+      mp <- round(midpoint, 2)
+      new_descript <- glue::glue("0 <= {fmethod}, 1 = above ({mp})")
+      
+      updated <- fd %>%
+        filter(name == ft) %>%
+        mutate(
+          method_applied = fmethod,
+          labels = new_labels,
+          true_label = new_true,
+          false_label = new_false,
+          ready = TRUE,
+          description = new_descript
+        )
+      
+      newone <- bind_rows(otherfactor, updated)
+      fl$factorDetails <- newone
+      factorFileData(fl)
     }
     
-    #tagList(h2("Non factor Variables"), natable, h2("Factors"), atable)
-    tagList(h2("Usable Binary Factors"), atable)
-  })
-
-
-
-  ## output$factorVariables ----
-  output$factorVariables = renderUI({
-    af <- availableFactors()
-    if(length(af) > 0) {
-      selectInput('selectedFactor', 'Select factor', af )
-    } else {
-      h1("No available factors")
+    
+    ### applyLevels
+    applyLevels <- function(ft, level0) {
+      b <- glue::glue_collapse(level0, sep = ",")
+      flog.info(str_c("applyLevels: [", ft, "] level0 ==> ",  b))
+      
+      fl <- factorFileData()
+      orig_md <- fl$orig_metadata
+      md <- fl$metadata
+      
+      selected_factor <- orig_md %>% pull(ft)
+      new_factor <- map_lgl(selected_factor, ~ !(. %in% level0))
+      
+      md[, ft] <- new_factor
+      fl$metadata <- md
+      factorFileData(fl)
+      
+      details <- factorFileData()$factorDetails
+      
+      f_labels <-
+        str_c(input$level0Label, ",", input$level1Label, sep = "")
+      f_true_label = input$level1Label
+      f_false_label = input$level0Label
+      other_factors <- details %>% dplyr::filter(name != ft)
+      
+      # get the labels and true values
+      this_factor <- details %>%
+        dplyr::filter(name == ft) %>%
+        mutate(
+          ready = TRUE,
+          method_applied = "factorgroup",
+          description = "Factor group applied",
+          level0_values = b,
+          labels = f_labels,
+          false_label = f_false_label,
+          true_label = f_true_label
+        )
+      
+      details <- bind_rows(this_factor, other_factors)
+      
+      #flog.info("UPDATING applyLevels factorDetails")
+      fl$factorDetails <- details
+      factorFileData(fl)
     }
-  })
-
-   selectedFactorLabels <- reactive({
-     req(input$selectedFactor)
-
-    fl <- factorFileData()
-    this_factor <- fl$computedDetails %>%
-            filter(name == input$selectedFactor)
-    this_factor$labels
-  })
-
-  ## output$selectDropdown ----
-   output$selectDropdown <- renderUI({
-    fl <- factorFileData()
-    af <- fl$computedDetails
-    if(!is.null(af)) {
-       #print(head(af))
-       af <- af %>% dplyr::pull(name)
-       tagList(
-         selectInput(ns('selected'), 'Variable', af ),
-         actionButton(ns("adjusterBtn"), "Prepare Factor")
-       )
-    } else {
-      p("no available factors")
-    }
-   })
-
-
- selectedFactorValues <- reactive({
-   factorFileData()$orig_metadata %>% pull(input$selected) %>% unique
- })
-
- selectedKind <- reactive({ 
-
-   validate( need(input$selected,
-                  "No factors to show because no sample data loaded"))
-
-    selected <- input$selected
-    details <- factorFileData()$allOriginalFactor
-    kind <- details %>%
-            dplyr::filter(name == input$selected) %>%
-            dplyr::pull(type)
-    kind
- })
-
- output$selectedFactorDescription <- renderUI({
-   if(is.null(input$selected)) {
-     return(NULL)
-   }
-
-   selected <- input$selected
-   af <- factorFileData()$computedDetails
-
-   this_factor <- af %>% filter(name == selected)
-   if(is.null(this_factor)) {
-      print(glue::glue("164: no this_factor Selected: {selected}"))
-      return(NULL)
-   }
-   #print(glue::glue("192: this_factor {this_factor} Selected: {selected}"))
-   if(is.null(this_factor) || this_factor$type == "numeric") {
-      return(NULL)
-   }
-
-   fvals <- str_split(this_factor$unique_values, ",") %>% unlist
-
-   # based on type of factor
-   tagList(
-     textInput(ns("level0Label"), "Reference Label", fvals[1]),
-     textInput(ns("level1Label"), "Comparison Label", fvals[2]),
-     div(actionButton(ns("applyFactorGroupButton"),"Finalize")))
- })
-
-
-  setDetails <- function(details) {
-       rdetails = details %>% dplyr::filter(ready)
-       fl <- factorFileData()
-       fl$allOriginalFactor <- details
-       fl$availableFactors <- rdetails$name
-       factorFileData(fl)
-  }
-
-
-  ### applyFactorNumeric
-  applyFactorNumeric <- function(ft, fmethod) {
-    orig_md <- factorFileData()$orig_metadata
-    md <- factorFileData()$metadata
-
-    selected_factor <- orig_md %>% pull(ft)
-    if (fmethod == "median") {
-       midpoint = median(selected_factor, na.rm = TRUE)
-       new_labels = "below median,above median"
-       new_true = "above median"
-    } else {
-       midpoint = mean(selected_factor, na.rm = TRUE)
-       new_labels = "below mean,above mean"
-       new_true = "above mean"
-    }
-    md[ , ft ] <- orig_md[ , ft] > midpoint
-
-    fl <- factorFileData()
-    fl$metadata <- md
-    factorFileData(fl)
-
-    details <- factorFileData()$allOriginalFactor
-
-    mp <- round(midpoint,2)
-    new_descript <- str_c("0 = below or at ", fmethod,
-        " 1 = above (", mp, ")",sep = "")
-
-    n_df <- tibble(name=ft,
-                   new_ready=TRUE,
-                   new_method_applied=fmethod,
-                   des=new_descript)
-
-    k_df <- details %>% left_join(n_df, by=c("name"="name"))
-
-    z_df <- k_df %>%
-            mutate(ready = ifelse(is.na(new_ready), ready, new_ready)) %>%
-            mutate(description = ifelse(is.na(des), description, des)) %>%
-            mutate(method_applied =
-              ifelse(is.na(new_method_applied),
-                    method_applied, new_method_applied)) %>%
-            mutate(labels =
-              ifelse(is.na(new_method_applied),
-                    labels, new_labels)) %>%
-            mutate(true_label =
-              ifelse(is.na(new_method_applied),
-                    true_label, new_true)) %>%
-            select(-new_ready, -des, -new_method_applied)
-
-    details <- z_df
-
-    cd <- factorFileData()$computedDetails %>%
-            mutate(ready, ifelse(name==ft,TRUE,ready)) %>%
-            mutate(method_applied, ifelse(name==ft,fmethod,method_applied))  %>%
-            mutate(description, ifelse(name==ft,new_descript,description))
-
-
-    k_df <- factorFileData()$computedDetails %>% left_join(n_df, by=c("name"="name"))
-
-    z_df <- k_df %>%
-      mutate(ready = ifelse(is.na(new_ready), ready, new_ready)) %>%
-      mutate(description = ifelse(is.na(des), description, des)) %>%
-      mutate(method_applied =
-               ifelse(is.na(new_method_applied),
-                      method_applied, new_method_applied)) %>%
-
-            mutate(labels =
-              ifelse(is.na(new_method_applied),
-                    labels, new_labels)) %>%
-            mutate(true_label =
-              ifelse(is.na(new_method_applied),
-                    true_label, new_true)) %>%
-      select(-new_ready, -des, -new_method_applied)
-
-    cd <- z_df
-
-    fl <- factorFileData(); fl$computedDetails <- cd; factorFileData(fl)
-
-    setDetails(details)
-  }
-
-
-  ### applyFactorGroup
-  applyFactorGroup <- function(ft, level0) {
-    flog.info(str_c("applyFactorGroup: [", ft, "] level0 ", 
-       glue::glue_collapse(level0, sep = ", ")))
-
-    fl <- factorFileData()
-    orig_md <- fl$orig_metadata
-    md <- fl$metadata
-
-    selected_factor <- orig_md %>% pull(ft)
-    new_factor <- map_lgl(selected_factor, ~ !(. %in% level0))
-
-    md[ , ft ] <- new_factor
-    fl$metadata <- md
-    factorFileData(fl)
-
-    details <- factorFileData()$allOriginalFactor
-
-    new_descript <- str_c("Factor group applied")
-
-    tp <- "factorgroup"
-    f_labels <- str_c(input$level0Label, ",", input$level1Label, sep="")
-    f_true_label = input$level1Label
-    other_factors <- details %>% dplyr::filter(name != ft)
-
-    # get the labels and true values
-    this_factor <- details %>%
-       dplyr::filter(name == ft) %>%
-       mutate(ready = TRUE,
-              method_applied = "factorgroup",
-              description = "Factor group applied",
-              labels = f_labels,
-              true_label = f_true_label)
-
-    details <- bind_rows(this_factor, other_factors)
-
-    fl <- factorFileData()
-    cd_other <- fl$computedDetails %>% dplyr::filter(name != ft)
-    cd_this <- fl$computedDetails %>% dplyr::filter(name == ft)
-    cd_this <- cd_this %>%
-       mutate(ready = TRUE,
-              method_applied = "factorgroup",
-              description = "Factor group applied",
-              labels = f_labels,
-              true_label = f_true_label)
-    cd <- bind_rows(cd_other, cd_this)
-
-    flog.info("UPDATING applyFactorGroup computedDetails")
-
-    fl$computedDetails <- cd ; factorFileData(fl)
-    setDetails(details)
-  }
-
-
-  observeEvent(input$adjusterBtn, {
-    kind <- selectedKind()
-    #based on kind show a different popup
-    if(kind=="numeric") {
-      showModal(modalDialog(
-          title = glue("Factor {input$selected} - (numeric)"),
-          span(style="color:blue; font-size:150%;",input$selected),
+    
+    output$editFactorUI <- renderUI({
+      kind <- selectedKind()
+      #based on kind show a different popup
+      
+      if (kind == "numeric" || kind == "integer") {
+        tagList(
+          span(style = "color:blue; font-size:120%;", input$selected),
           actionButton(ns("applyMean"), "Mean"),
-          actionButton(ns("applyMedian"), "Median"),
-          size = "l",
-          easyClose = TRUE
-      ))
-    } else {
-      showModal(modalDialog(
-          title = glue("CHARACTER {input$selected}"),
-          span(style="color:blue; font-size:150%;",input$selected),
-# need to preselect the current value
-          checkboxGroupInput(ns("level0checkboxes"),
-             "Select reference values", selectedFactorValues()),
-          uiOutput(ns("selectedFactorDescription")),
-          size = "l",
-          easyClose = TRUE
-       ))
-    }
-  })
-
-
-  ## BUTTON to apply changes ----
-  observeEvent(input$applyMean, {
-     applyFactorNumeric(input$selected, "mean")
-     removeModal()
-  })
-
-  observeEvent(input$applyMedian, {
-     applyFactorNumeric(input$selected, "median")
-    removeModal()
-  })
-
-  observeEvent(input$applyFactorGroupButton, {
-    b <- glue::glue_collapse(input$level0checkboxes, sep = ", ")
-    applyFactorGroup(input$selected, input$level0checkboxes) 
-    removeModal()
-  })
+          actionButton(ns("applyMedian"), "Median")
+        )
+      } else {
+        fl <- factorFileData()
+        item <- fl$factorDetails %>% filter(name == input$selected)
+        initial_level0 <-
+          str_split(item$level0_values,
+                    pattern = ",",
+                    simplify = TRUE)
+        
+        tagList(
+          span(style = "color:blue; font-size:120%;", input$selected),
+          
+          # need to preselect the current value
+          checkboxGroupInput(
+            ns("level0checkboxes"),
+            "Which value(s) should be 0 (FALSE)? Other values will be 1 (TRUE)",
+            selectedFactorValues(),
+            inline = TRUE,
+            selected = initial_level0,
+            width = '100%'
+          ),
+          uiOutput(ns("selectedFactorDescription"))
+        )
+      }
+    })
+    
+    observeEvent(input$adjusterBtn, {
+      kind <- selectedKind()
+      #based on kind show a different popup
+      
+      if (kind == "numeric" || kind == "integer") {
+        showModal(
+          modalDialog(
+            title = glue("Factor {input$selected} - (numeric)"),
+            span(style = "color:blue; font-size:120%;", input$selected),
+            actionButton(ns("applyMean"), "Mean"),
+            actionButton(ns("applyMedian"), "Median"),
+            size = "l",
+            easyClose = TRUE
+          )
+        )
+      } else {
+        fl <- factorFileData()
+        item <- fl$factorDetails %>% filter(name == input$selected)
+        initial_level0 <-
+          str_split(item$level0_values,
+                    pattern = ",",
+                    simplify = TRUE)
+        
+        showModal(
+          modalDialog(
+            title = glue("CHARACTER {input$selected}"),
+            span(style = "color:blue; font-size:120%;", input$selected),
+            
+            # need to preselect the current value
+            checkboxGroupInput(
+              ns("level0checkboxes"),
+              "Which value(s) should be 0 (FALSE)? Other values will be 1 (TRUE)",
+              selectedFactorValues(),
+              inline = TRUE,
+              selected = initial_level0,
+              width = '100%'
+            ),
+            uiOutput(ns("selectedFactorDescription")),
+            size = "l",
+            easyClose = TRUE
+          )
+        )
+      }
+    })
+    
+    
+    output$factorTable <- renderTable({
+      fl <- factorFileData()
+      if(!is.null(fl$factorDetails)) {
+        fl$factorDetails %>% 
+          select(name, ready, type, method_applied,
+                false_label, true_label, level0_values)
+      }
+    })
+    
+    ## BUTTON to apply changes ----
+    observeEvent(input$applyMean, {
+      applyFactorNumeric(input$selected, "mean")
+      removeModal()
+    })
+    
+    observeEvent(input$applyMedian, {
+      applyFactorNumeric(input$selected, "median")
+      removeModal()
+    })
+    
+    observeEvent(input$assignLevelsBtn, {
+      applyLevels(input$selected, input$level0checkboxes)
+      removeModal()
+    })
   })
 }
     

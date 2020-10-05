@@ -5,7 +5,7 @@
 \alias{method.options}
 \title{method.options - available method options}
 \format{
-An object of class \code{list} of length 3.
+An object of class \code{list} of length 4.
 }
 \usage{
 method.options
