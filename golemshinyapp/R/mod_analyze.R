@@ -7,34 +7,49 @@
 #' @noRd 
 #'
 #' @importFrom shiny NS tagList 
-mod_analyze_ui <- function(id){
+mod_analyze_ui <- function(id) {
   ns <- NS(id)
-  tagList(
-    fluidRow(
-      column(3, p("Description")), 
-      column(9, uiOutput(ns("description")))
-    ),
-    fluidRow(
-      column(4, selectInput(ns("adj_method"),
-		label = "Comparison Method", choices = method.options,
-		selectize = FALSE,
-		size = 1,
-      selected = "fdr")),
-      column(4, selectInput(inputId = ns("significance_threshold"),
-		label= "Significance Threshold",
+  tagList(fluidRow(column(3, p("Description")),
+                   column(9, uiOutput(
+                     ns("description")
+                   ))),
+          fluidRow(
+            column(
+              4,
+              selectInput(
+                ns("adj_method"),
+                label = "Comparison Method",
+                choices = method.options,
                 selectize = FALSE,
-		size = 1,
-		choices = significance.options,
-                selected = significance.options.default )) ,
-      column(4,  uiOutput(ns("factorVariables")) )),
-     uiOutput(ns("dataTabPanel"))
-   )
+                size = 1,
+                selected = "fdr"
+              )
+            ),
+            column(
+              4,
+              selectInput(
+                inputId = ns("significance_threshold"),
+                label = "Significance Threshold",
+                selectize = FALSE,
+                size = 1,
+                choices = significance.options,
+                selected = significance.options.default
+              )
+            ) ,
+            column(4,  uiOutput(ns(
+              "factorVariables"
+            )))
+          ),
+          uiOutput(ns("dataTabPanel")))
 }
-    
+
 #' analyze Server Function
 #'
 #' @import DT
 #' @import Hmisc
+#' @import ggplot2
+#' @import shinyalert
+#' @import stringr
 #' @noRd 
 mod_analyze_server <- function(id, filesData, factorFileData) {
 
@@ -59,13 +74,19 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
     }
 
     ft = tryCatch({
+        #print("data_by_auc")
         suppressWarnings(helper.data_by_auc( otut = otut, fdata = sf, input$adj_method))
         }, warning = function(w) {
          flog.warn(str_c("110 baseFilteredData helper warning ", w))
          NULL
-        }, error = function(w) {
-         flog.error(str_c("113 baseFilteredData helper error ", w))
-         NULL
+        }, error = function(err) {
+         emsg <- glue::glue("Error - {err}")
+         if(str_detect(emsg, "rcorr.cens")) {
+            emsg <- glue::glue("{err} Check data (including first column is id)")
+         }
+         shinyalert("Oops!", emsg, type = "error")
+         flog.error(str_c("113 baseFilteredData helper error ", err))
+         return(NULL)
         })
 
     if(is.null(ft)) {
@@ -75,6 +96,7 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
     }
     thres <- input$significance_threshold
 
+    #print("TRANSPOSING baseFilteredData")
     if(thres != "All") {
       thres <- as.numeric(input$significance_threshold)
       filt = (ft["p.adjust", ] < thres) & !is.na(ft["p.adjust", ])
@@ -97,6 +119,8 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
       return(NULL)
     }
 
+    # the rest is generating the graph with error bars
+
     dd = as.data.frame(b)
     ticks = generateTicks(dd)
     sf = theSelectedFactor()
@@ -109,19 +133,22 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
    selectedFactorLabels <- reactive({
      req(input$selectedFactor)
 
-     v <- filter(factorFileData()$computedDetails, name == input$selectedFactor)
+     v <- filter(factorFileData()$factorDetails, name == input$selectedFactor)
      v$labels
   })
 
 
   ## output$factorVariables ----
   output$factorVariables = renderUI({
-    af <- factorFileData()$availableFactors
-    if(length(af) > 0) {
-      selectInput(ns('selectedFactor'), 'Select factor', af )
-    } else {
-      h1("No available factors")
+    df <- factorFileData()$factorDetails
+    retval <- h1("No available factors")
+    if(!is.null(df)) {
+      af <- df %>% filter(ready == TRUE) %>% pull(name)
+      if(length(af) > 0) {
+        retval <- selectInput(ns('selectedFactor'), 'Select factor', af )
+      } 
     }
+    retval
   })
 
   roundedData <- reactive({
@@ -151,7 +178,6 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
   })
 
   otut_for_processing <- reactive({
-
     tft <- filesData()$mvdata
     if(is.null(tft)) {
       print("no mvdata() ")
@@ -192,6 +218,9 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
 
   # use plot_ly to display data
   # generatePlot_ly ----
+  # This plot shifts values by 0.5 so that those below 0.5 are to the left of 0 and 
+  # those above are greater than (the new) 0.  and are colored according to that shifted
+  # value
   generatePlot_ly <- reactive({ 
     dd <- getDD()
     if(length(dd) <= 0) {
@@ -214,14 +243,26 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
 
     my.error.bars = list(type = "data", symmetric = FALSE, color = '#333333',arrayminus = ~dd$low-0.5,array = ~dd$high-0.5)
 
-    hover.text = paste(dd$Names, " AUC ",round(dd$auc,2)," high: ", round(dd$high,2), "low", round(dd$low,2))
+    hover.text = paste(dd$Names, " Auc ",round(dd$auc,2)," high: ", round(dd$high,2), "low", round(dd$low,2))
 
     layout_title <- 
         glue::glue( "LEGEND: {input$selectedFactor} {selectedFactorLabels()}" )
 
     dd$color <- map_chr(dd$auc, ~ ifelse(. < 0.5, "pink", "lightblue"))
-    p <- dd %>%
-      plot_ly( ) %>%
+ 
+    p2 <- dd %>%
+      plot_ly( ) %>% 
+      config(
+        modeBarButtonsToRemove = list('toggleSpikelines','hoverCompareCartesian',
+                                      'zoom2d', 'pan2d', 'select2d', 'lasso2d'),
+        toImageButtonOptions = list(
+          format = "svg",
+          filename = "pesame",
+          width = 600,
+          height = 700
+        )) 
+    
+    p <- p2 %>% 
       add_bars( x = ~dd$heights,
                 y = ~dd$Names,
                 # need to specify the legend labels
@@ -243,7 +284,8 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
                    color = toRGB("black"),
                    showlegend = FALSE,
                    hoverinfo = "none") %>%
-      layout(title = layout_title,
+      layout(#title = layout_title,
+        title = NULL,
              xaxis = my.xaxis,
              margin = list(l=120,t=50,b=30,unit="pt",pad=2),
              yaxis = list(title=""))
@@ -253,13 +295,13 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
 
   ### output$analyzeTable ----
   output$analyzeTable <- DT::renderDataTable({
-       d <- roundedData()
-       DT::datatable(roundedData(), options = list(pageLength = 5)) 
+    d <- roundedData()
+    DT::datatable(roundedData(), options = list(pageLength = 5)) 
   })
 
   # output$filteredPlotly ----
   output$filteredPlotly <- renderPlotly({
-    generatePlot_ly()
+    suppressWarnings(generatePlot_ly())
   })
 
   output$description<- renderText({
@@ -270,6 +312,15 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
       s
   })
 
+  output$plotTitle <- renderUI({
+    tagList("Displaying analysis based on ",
+        span(style = "color:blue; font-size:120%;", input$selectedFactor),
+        " with levels ",
+    
+    span(style = "color:blue; font-size:120%;", selectedFactorLabels())
+    )
+  })
+  
   ###-- panel at bottom of Analyze panel
   output$dataTabPanel = renderUI({
     validate( need(!is.null(otut_for_processing) &&
@@ -277,7 +328,7 @@ mod_analyze_server <- function(id, filesData, factorFileData) {
                   "No data - Data and meta data must be loaded"))
 
     tabsetPanel(type="tabs",
-      tabPanel("Plot", plotlyOutput(ns("filteredPlotly"))),
+      tabPanel("Plot", tagList(uiOutput(ns("plotTitle")), plotlyOutput(ns("filteredPlotly")))),
       tabPanel("Table", DT::dataTableOutput(ns("analyzeTable"))))
   })
   })
