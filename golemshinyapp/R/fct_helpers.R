@@ -24,40 +24,6 @@ uniq_vals_description <- function(ff1) {
   ss
 }
 
-#' uniqvals 
-#'
-#' @import purrr
-#' @import stringr 
-#' @import dplyr 
-#' @import tidyr 
-#' @import glue 
-uniqvals <- function(f) {
-
-  u_vals <- unique(f)
-  num_unique <- length(u_vals)
-  ready <- (num_unique == 2)
-  type <- class(u_vals)
-
-  labels <- "FALSE,TRUE"
-  true_label <- "TRUE"
-
-  uu_str <- glue_collapse(u_vals, ", ")
-  if(num_unique == 2) {
-     labels <- str_c(u_vals, collapse = ",")
-     true_label <- u_vals[2]
-  }
-
-  description <- uniq_vals_description(f)
-  new_df <- tibble(num_unique = num_unique,
-                   unique_values = uu_str,
-                   method_applied = "none",
-                   type = type,
-                   description = description,
-                   labels = labels,
-                   true_label = true_label)
-}
-
-
 #' identifyFactors
 #'
 #' @import purrr
@@ -65,16 +31,30 @@ uniqvals <- function(f) {
 #' @import dplyr 
 #' @import tidyr 
 identifyFactors <- function(df) {
+
   dfcounts <- df %>% summarise(across(everything(), n_distinct))
-  dfcols <- dfcounts %>% pivot_longer(everything())
+  dfcols <- dfcounts %>% pivot_longer(everything()) %>%
+     rename(num_values = value)
 
-  cols <- dfcols %>% filter(value == 2) %>% pull(name)
-  factors_df <- map_df(cols, ~ uniqvals(pull(df,.))) %>%
-    mutate(name = cols, ready = TRUE) 
+  dftypes <- df %>% summarise(across(everything(), class))
+  dfcoltypes <- dftypes %>% pivot_longer(everything()) %>%
+     rename(type = value)
 
-  othercols <- dfcols %>% filter(value != 2) %>% pull(name)
-  nonfactors_df <- map_df(othercols, ~ uniqvals(pull(df,.))) %>%
-    mutate(name = othercols, ready = FALSE) 
+  dfu <- df %>% summarise(across(everything(), uniq_vals_description))
+  dfuvals <- dfu %>% pivot_longer(everything()) %>%
+     mutate(description = value) %>%
+     rename(unique_values = value)
 
-  both <- bind_rows(factors_df, nonfactors_df)
+  all <- dfcols %>% 
+   left_join(dfcoltypes, by="name") %>% 
+   left_join(dfuvals, by="name") %>% 
+   mutate(ready = (num_values == 2), 
+          labels = "FALSE,TRUE",
+          true_label = "TRUE",
+          false_label = "FALSE",
+          level0_values = "",
+          method_applied = "none")
+
+
+  all 
 }

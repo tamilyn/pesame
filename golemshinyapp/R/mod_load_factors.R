@@ -54,10 +54,9 @@ mod_load_factors_server <- function(id, factorFileData) {
          span(style="font-color: #660099;", fd$filename),
          span(style="font-weight: 900;", " Dimensions "),
          span(style="font-color: #660099;", dims)),
-      div(span(style="font-weight: 900;", "Transpose? "),
-           fd$transpose),
-       div("Has ID column? ", fd$hasIdCol),
-       actionButton(ns("adjusterBtn"), "Preview") 
+        checkboxInput(ns("hasIdCol"),
+             "First column is instance name", input$hasIdCol),
+        checkboxInput(ns("transpose"), "Transpose", input$transpose)
     )
 
    })
@@ -74,27 +73,60 @@ mod_load_factors_server <- function(id, factorFileData) {
           fl$orig_metadata <- df
 
           # reset everything to empty (in case of error)
-          fl$computedDetails <- NULL
+          fl$factorDetails <- NULL
           factorFileData(fl)
 
           factors_df <- identifyFactors(df)
-          rdetails = factors_df %>% dplyr::filter(ready)
 
           fl <- factorFileData()
-          fl$allOriginalFactor <- factors_df
-
           #TO DO: maybe remove first one if fl$hasIdCol 
-          fl$availableFactors <- rdetails$name
-          fl$computedDetails <- factors_df
+          fl$factorDetails <- factors_df
           factorFileData(fl)
 
       }, warning = function(w) {
           flog.warn(str_c("identify factors warning ", w))
       }, error = function(e) {
           flog.error(str_c("identify factors warning ", e))
-          browser()
+          emsg <- str_c("Error identifying factors:  ", e)
+          shinyalert("Oops!", emsg, type = "error")
+          #browser()
       })
     }
+
+    
+    preppedData <- reactive({
+      hasIdCol <- input$hasIdCol 
+      transpose <- input$transpose
+
+      fl <- factorFileData()
+      if(hasIdCol) {
+        d <- select(fl$rawFileData, -1)
+      } else {
+        d <- fl$rawFileData
+      }
+      if(transpose) {
+        d <- as.data.frame(t(d))
+      }
+      d
+    }) 
+
+    observeEvent(input$transpose, {
+      fl <- factorFileData()
+      fl$transpose <- input$transpose  
+      factorFileData(fl)
+
+      d <- preppedData()
+      setmetadata(d) 
+    })
+
+    observeEvent(input$hasIdCol, {
+      fl <- factorFileData()
+      fl$hasIdCol <- input$hasIdCol 
+      factorFileData(fl)
+
+      d <- preppedData()
+      setmetadata(d) 
+    })
 
     loadedTransformedData <- reactive({
       s <- factorFileData()$metadata
@@ -157,37 +189,6 @@ mod_load_factors_server <- function(id, factorFileData) {
    })
     
 
-    observeEvent(input$transpose, {
-      fl <- factorFileData() ; fl$transpose <- input$transpose ; factorFileData(fl)
-    })
-
-    observeEvent(input$hasIdCol , {
-      fl <- factorFileData()  
-      fl$hasIdCol <- input$hasIdCol  
-
-      df1 <- fl$rawFileData
-      if(input$hasIdCol) {
-        md_df <- select(df1, -1)
-        setmetadata(md_df) 
-      } else {
-        setmetadata(df1) 
-      }
-
-      factorFileData(fl)
-    })
-
-  observeEvent(input$adjusterBtn, { 
-    showModal(modalDialog(
-        title = "Preview and Adjust",
-        span(style="color:blue; font-size:120%;",
-        checkboxInput(ns("hasIdCol"),
-             "First column is instance name", input$hasIdCol)),
-        checkboxInput(ns("transpose"), "Transpose", input$transpose),
-        DT::dataTableOutput(ns("tablePreview")),
-        size = "l",
-        easyClose = TRUE
-      ))
-  })
   })
 
 }

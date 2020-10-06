@@ -62,7 +62,6 @@ mod_loadmodule_server <- function(id, filesData) {
     DT::datatable(s)
   })
 
-  
   # output$fileContentsPreview ----
   output$fileContentsPreview <- renderUI({
     fd <- filesData()
@@ -84,37 +83,39 @@ mod_loadmodule_server <- function(id, filesData) {
          span(style="font-weight: 900;", " Dimensions "),
          span(style="font-color: #660099;", dims)
          ),
-       div(span(style="font-weight: 900;", "Transpose? "),
-           fd$transpose),
-       div("Has ID column? ", fd$hasIdCol),
-       actionButton(ns("adjusterBtn"), "Preview") 
+       div(checkboxInput(ns("hasIdCol"), 
+          "First column is id", fd$hasIdCol)),
+       div(checkboxInput(ns("transpose"), "Transpose", fd$transpose))
     )
   })
 
-  observeEvent(input$adjusterBtn, { 
-    fd <- filesData()
-    showModal(modalDialog(
-        title = "Preview and Adjust",
-        span(style="color:blue; font-size:120%;",
-        checkboxInput(ns("hasIdCol"), 
-          "First column is id", fd$hasIdCol)),
-        checkboxInput(ns("transpose"), "Transpose", fd$transpose),
-        DT::dataTableOutput(ns("otutTablePreview")),
-        size = "l",
-        easyClose = TRUE
-      ))
-  })
+    preppedData <- reactive({
+      hasIdCol <- input$hasIdCol 
+      transpose <- input$transpose
+
+      fl <- filesData() 
+      if(hasIdCol) {
+        d <- select(fl$rawFileData, -1)
+      } else {
+        d <- fl$rawFileData
+      }
+      if(transpose) {
+        d <- t(d)
+      }
+      d
+    }) 
 
     observeEvent(input$transpose, {
-      fl <- filesData() ; 
+      fl <- filesData()  
       fl$transpose <- input$transpose  
+      fl$mvdata  <- preppedData()
       filesData(fl)
     })
 
-    observeEvent(input$hasIdCol , {
+    observeEvent(input$hasIdCol, {
       fl <- filesData()  
       fl$hasIdCol <- input$hasIdCol 
-      fl$mvdata <- select(fl$rawFileData, -1)
+      fl$mvdata  <- preppedData()
       filesData(fl)
     })
 

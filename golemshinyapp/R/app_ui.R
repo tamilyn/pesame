@@ -22,42 +22,12 @@ top_part <- tags$nav(class="navbar navbar-default navbar-fixed-top",
       tags$li(class="navbar-text navbar-brand", "PESAME: Predictive effect size analysis in multivariable ensembles"))))
 
 
-#' hdr - dashboard header
-#'
-hdr <- dashboardHeader(title = "PESAME")
-
-
-#' side - dashboard sidebar
-#'
-side <- dashboardSidebar(
-  sidebarMenu(
-        #menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-        menuItem("Load", icon = icon("th"), tabName = "load"),
-        menuItem("Describe Factors", icon = icon("th"), tabName = "factor"),
-        menuItem("Analyze", icon = icon("th"), tabName = "analyze"),
-        menuItem("Citation", icon = icon("th"), tabName = "citation")
-    )
-)
-
-#' body - dashboard body 
-#'
-body <- dashboardBody(
-    tabItems(
-        tabItem(tabName = "dashboard", h2("Dashboard tab content")),
-        tabItem(tabName = "load", uiOutput("loadUI")),
-        tabItem(tabName = "factor", uiOutput("factorUI")),
-        tabItem(tabName = "analyze",  uiOutput("analyzeUI")),
-        tabItem(tabName = "citation", uiOutput("citationUI"))))
-
-#' body1 - dashboard body 
-#'
-body1 <- top_part
-
 #' The application User-Interface
 #' 
 #' @param request Internal parameter for `{shiny}`. 
 #'     DO NOT REMOVE.
-#' @import shiny shinydashboard
+#' @import shiny 
+#' @export
 #' @noRd
 app_ui <- function(request) {
   version <- paste0("v", packageVersion("golemshinyapp"))
@@ -81,11 +51,12 @@ app_ui <- function(request) {
                          spec_main = c(width = 10, offset = 0)) %>%
       bs_append( title_side = "Load data",
                  content_side = load_data_content_side,
-                 content_main = tagList(fluidRow(
-                   column(6, mod_loadmodule_ui("loadmodule_ui_1")),
-                   column(6, mod_load_factors_ui("loadmodule_ui_2"))
-                   ))  
-                 ) %>%
+                 content_main = tagList(
+                   fluidRow(
+                     column(6, mod_loadmodule_ui("loadmodule_ui_1")),
+                     column(6, mod_load_factors_ui("loadmodule_ui_2"))),
+                   fluidRow(mod_preview_table_ui("preview_table_ui_1"))
+                   )) %>%
       bs_append( title_side = "Factors",
                  content_side = "Select factors",
                  content_main = mod_factors_ui("factors_ui_1")) %>%
