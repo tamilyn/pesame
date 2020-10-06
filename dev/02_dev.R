@@ -44,7 +44,7 @@ usethis::use_test( "app" )
 # Documentation
 
 ## Vignette ----
-usethis::use_vignette("golemshinyapp")
+usethis::use_vignette("pesame")
 devtools::build_vignettes()
 
 ## Code coverage ----
