@@ -1,8 +1,9 @@
 Package: pesame
-Title: Pesame Shiny Application
-Version: 0.0.1.2
+Title: Predictive Effect Size Analysis in Multivariate Ensembles Shiny Application
+Version: 1.0.0.0
 Authors@R: person('Tami', 'Crawford', email = 'tami.crawford@gmail.com', role = c('cre', 'aut'))
-Description: PKG_DESC.
+Description: This packaged implements pairwise Mann Whitney tests with effect sizes reporting in terms 
+of ROC AUC. Multiple comparison adjustments are implemented as well.
 License: MIT + file LICENSE
 Imports: 
     config,
