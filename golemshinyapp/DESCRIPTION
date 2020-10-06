@@ -1,4 +1,4 @@
-Package: golemshinyapp
+Package: pesame
 Title: Pesame Shiny Application
 Version: 0.0.1.2
 Authors@R: person('Tami', 'Crawford', email = 'tami.crawford@gmail.com', role = c('cre', 'aut'))
