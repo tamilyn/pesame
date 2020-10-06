@@ -8,7 +8,7 @@
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
 <!-- badges: end -->
 
-The goal of golemshinyapp is to provide an interface to the pesame algorithm.
+The app provides non-parametric Mann Whitney tests functionality, coupled with adjustment for multiple comparisons, and predictive effect size estimation using ROC AUC.
 
 ## Installation
 
