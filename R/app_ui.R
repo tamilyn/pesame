@@ -14,14 +14,6 @@ citation_side <-
 citation_main <-
   div(textOutput("citation"))
 
-#' top_part - top navigation bar
-#'
-top_part <- tags$nav(class="navbar navbar-default navbar-fixed-top",
-  div(class="container",
-    tags$ul(class="nav navbar",
-      tags$li(class="navbar-text navbar-brand", "PESAME: Predictive effect size analysis in multivariable ensembles"))))
-
-
 #' The application User-Interface
 #' 
 #' @param request Internal parameter for `{shiny}`. 
@@ -34,17 +26,18 @@ app_ui <- function(request) {
 
   tagList(
     # Leave this function for adding external resources
-    golem_add_external_resources(),
+    #golem_add_external_resources(),
 
     # List the first level UI elements here 
     fluidPage( 
-      useShinyjs(), # TAMI CHECK
+      useShinyjs(), 
 
       tags$head(
-        tags$title('PESAME'),
-        tags$link(rel = 'stylesheet', type = 'text/css', href = 'styles.css')),
-      top_part,
-       div(
+        tags$title('PESAME')),
+        #tags$link(rel = 'stylesheet', type = 'text/css', href = 'styles.css')),
+      
+      h3("PESAME: Predictive effect size analysis in multivariable ensembles"),
+      div(
     bs_accordion_sidebar(id = "sections",
                          spec_side = c(width = 2, offset = 0),
                          spec_main = c(width = 10, offset = 0)) %>%
@@ -87,7 +80,8 @@ golem_add_external_resources <- function(){
   add_resource_path(
     'www', app_sys('app/www')
   )
-
+  
+  tryCatch({
   tags$head(
     favicon(),
     bundle_resources(
@@ -97,6 +91,11 @@ golem_add_external_resources <- function(){
     # Add here other external resources
     # for example, you can add shinyalert::useShinyalert() 
     , shinyalert::useShinyalert() 
-  )
+  )}, warning = function(cond) {
+    print(paste("WARNING TAGS HEAD ", cond))
+  }, error = function(econd) {
+    print(paste("ERROR TAGS HEAD ", econd))
+    
+  })
 }
 
