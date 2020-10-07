@@ -27,10 +27,9 @@ top_part <- tags$nav(class="navbar navbar-default navbar-fixed-top",
 #' @param request Internal parameter for `{shiny}`. 
 #'     DO NOT REMOVE.
 #' @import shiny 
-#' @export
 #' @noRd
 app_ui <- function(request) {
-  version <- paste0("v", packageVersion("golemshinyapp"))
+  version <- paste0("v", packageVersion("pesame"))
   #print(version)
 
   tagList(
@@ -93,7 +92,7 @@ golem_add_external_resources <- function(){
     favicon(),
     bundle_resources(
       path = app_sys('app/www'),
-      app_title = 'golemshinyapp'
+      app_title = 'pesame'
     )
     # Add here other external resources
     # for example, you can add shinyalert::useShinyalert() 

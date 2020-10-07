@@ -11,8 +11,8 @@ mod_preview_table_ui <- function(id){
   ns <- NS(id)
   tagList(
    tabsetPanel(type = "tabs",
-     tabPanel("Otut", tableOutput(ns("previewOtutTable"))),
-     tabPanel("Metadata", tableOutput(ns("previewMetadataTable")))))
+     tabPanel("Features", tableOutput(ns("previewOtutTable"))),
+     tabPanel("Sample Data", tableOutput(ns("previewMetadataTable")))))
 }
     
 #' preview_table Server Function
