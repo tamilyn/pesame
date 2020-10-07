@@ -1,2 +1,2 @@
 #!/bin/sh
-docker build -t alekseyenko/pesame builddir 
+docker build --no-cache -t alekseyenko/pesame builddir 
