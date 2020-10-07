@@ -28,3 +28,18 @@ library(pesame)
 pesame::run_app()
 ```
 
+## Run the app using Docker
+
+On Mac run the following commands in the terminal to start the app and open the browser:
+
+```
+docker run -p 3838:3838 alekseyenko/pesame &
+sleep 10
+open http://0.0.0.0:3838
+```
+
+To stop the app when done run the following in the terminal
+
+```
+docker kill `docker ps | grep alekseyenko/pesame | cut -d' ' -f1`
+```
