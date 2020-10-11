@@ -55,7 +55,9 @@ mod_load_factors_server <- function(id, factorFileData) {
          span(style="font-weight: 900;", " Dimensions "),
          span(style="font-color: #660099;", dims)),
         checkboxInput(ns("hasIdCol"),
-             "First column is instance name", input$hasIdCol),
+             "First column is Id", input$hasIdCol),
+#        checkboxInput(ns("hasIdRow"),
+#             "First row is Id", input$hasIdRow),
         checkboxInput(ns("transpose"), "Transpose", input$transpose)
     )
 
@@ -95,7 +97,8 @@ mod_load_factors_server <- function(id, factorFileData) {
 
     
     preppedData <- reactive({
-      hasIdCol <- input$hasIdCol 
+      hasIdCol <- input$hasIdCol
+      hasIdRow <- input$hasIdRow
       transpose <- input$transpose
 
       fl <- factorFileData()
